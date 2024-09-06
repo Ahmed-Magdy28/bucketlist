@@ -1,3 +1,5 @@
+import 'package:bucketlist/addbucket_list.dart';
+import 'package:bucketlist/view_item.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -11,6 +13,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   List<dynamic> bucketlist = [];
   bool isLoading = false;
+  bool isError = false;
   @override
   void initState() {
     super.initState();
@@ -24,27 +27,93 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final Response response = await Dio().get(
           'https://test101-85ff2-default-rtdb.firebaseio.com/bucketlist.json');
-      bucketlist = response.data;
+      if (response.data is List) {
+        bucketlist = response.data.where((element) => element != null).toList();
+      } else {
+        bucketlist = [];
+      }
       isLoading = false;
-
+      isError = false;
       setState(() {});
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      showDialog(
-          context: context,
-          builder: (context) {
-            return const AlertDialog(
-              title: Text("Error: Unable to Fetch Data"),
-            );
-          });
+      isLoading = false;
+      isError = true;
+      setState(() {});
     }
+  }
+
+  Widget errorWidget({required String errorText}) {
+    return Center(
+        child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.error),
+        const SizedBox(height: 20),
+        Text(errorText),
+        const SizedBox(height: 20),
+        ElevatedButton(onPressed: getData, child: const Text("Try Again"))
+      ],
+    ));
+  }
+
+  Widget loadingWidget() {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Center(child: Text("Is Loading")),
+        SizedBox(height: 20),
+        CircularProgressIndicator(),
+      ],
+    );
+  }
+
+  Widget listDataWidget() {
+    return ListView.builder(
+        itemCount: bucketlist.length,
+        itemBuilder: (BuildContext context, int index) {
+          return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: (bucketlist[index] is Map)
+                  ? ListTile(
+                      onTap: () {
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (context) {
+                          return ViewItemScreen(
+                            title: bucketlist[index]['item'] ?? "",
+                            imageUrl: bucketlist[index]['image'] ?? "",
+                            cost: bucketlist[index]['cost']?.toString() ?? "0",
+                            index: index,
+                          );
+                        })).then((value) {
+                          if (value == 'refresh') {
+                            getData();
+                          }
+                        });
+                      },
+                      leading: CircleAvatar(
+                          radius: 25,
+                          backgroundImage:
+                              NetworkImage(bucketlist[index]['image'] ?? "")),
+                      title: Text(bucketlist[index]['item'] ?? ""),
+                      trailing:
+                          Text(bucketlist[index]['cost']?.toString() ?? "0"),
+                    )
+                  : const SizedBox());
+        });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+        floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) {
+                return const AddbucketListScreen();
+              }));
+            },
+            shape: const CircleBorder(),
+            child: const Icon(Icons.add)),
         appBar: AppBar(
           title: const Text('Bucket List'),
           actions: [
@@ -63,33 +132,14 @@ class _MainScreenState extends State<MainScreen> {
             getData();
           },
           child: isLoading
-              ? const Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Center(child: Text("Is Loading")),
-                    SizedBox(height: 20),
-                    CircularProgressIndicator(),
-                  ],
-                )
-              : ListView.builder(
-                  itemCount: bucketlist.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final Map<String, dynamic> item = bucketlist[index];
-                    final String imageUrl = item['image'] ?? "No Image";
-                    final String itemName = item['item'] ?? "unknown";
-                    final String cost = item['cost']?.toString() ?? "0";
-                    return Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                            radius: 25,
-                            backgroundImage: NetworkImage(imageUrl)),
-                        title: Text(itemName),
-                        trailing: Text(cost),
-                      ),
-                    );
-                  }),
+              ? loadingWidget()
+              : isError
+                  ? errorWidget(errorText: "connection error")
+                  : bucketlist.isEmpty
+                      ? const Center(
+                          child: Text("No Data"),
+                        )
+                      : listDataWidget(),
         ));
   }
 }
