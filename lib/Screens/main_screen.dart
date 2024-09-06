@@ -1,5 +1,5 @@
-import 'package:bucketlist/addbucket_list.dart';
-import 'package:bucketlist/view_item.dart';
+import 'package:bucketlist/Screens/add_screen.dart';
+import 'package:bucketlist/Screens/view_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -69,38 +69,47 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget listDataWidget() {
-    return ListView.builder(
-        itemCount: bucketlist.length,
-        itemBuilder: (BuildContext context, int index) {
-          return Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: (bucketlist[index] is Map)
-                  ? ListTile(
-                      onTap: () {
-                        Navigator.push(context,
-                            MaterialPageRoute(builder: (context) {
-                          return ViewItemScreen(
-                            title: bucketlist[index]['item'] ?? "",
-                            imageUrl: bucketlist[index]['image'] ?? "",
-                            cost: bucketlist[index]['cost']?.toString() ?? "0",
-                            index: index,
-                          );
-                        })).then((value) {
-                          if (value == 'refresh') {
-                            getData();
-                          }
-                        });
-                      },
-                      leading: CircleAvatar(
-                          radius: 25,
-                          backgroundImage:
-                              NetworkImage(bucketlist[index]['image'] ?? "")),
-                      title: Text(bucketlist[index]['item'] ?? ""),
-                      trailing:
-                          Text(bucketlist[index]['cost']?.toString() ?? "0"),
+    List<dynamic> filteredList = bucketlist
+        .where((element) => !(element?["completed"] ?? false))
+        .toList();
+
+    return (filteredList.isEmpty)
+        ? const Center(child: Text("All Completed"))
+        : ListView.builder(
+            itemCount: bucketlist.length,
+            itemBuilder: (BuildContext context, int index) {
+              return (bucketlist[index] is Map &&
+                      !(bucketlist[index]?["completed"] ?? false))
+                  ? Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ListTile(
+                        onTap: () {
+                          Navigator.push(context,
+                              MaterialPageRoute(builder: (context) {
+                            return ViewItemScreen(
+                              title: bucketlist[index]['item'] ?? "",
+                              imageUrl: bucketlist[index]['image'] ?? "",
+                              cost:
+                                  bucketlist[index]['cost']?.toString() ?? "0",
+                              index: index,
+                            );
+                          })).then((value) {
+                            if (value == 'refresh') {
+                              getData();
+                            }
+                          });
+                        },
+                        leading: CircleAvatar(
+                            radius: 25,
+                            backgroundImage:
+                                NetworkImage(bucketlist[index]['image'] ?? "")),
+                        title: Text(bucketlist[index]['item'] ?? ""),
+                        trailing:
+                            Text(bucketlist[index]['cost']?.toString() ?? "0"),
+                      ),
                     )
-                  : const SizedBox());
-        });
+                  : const SizedBox();
+            });
   }
 
   @override
@@ -109,8 +118,14 @@ class _MainScreenState extends State<MainScreen> {
         floatingActionButton: FloatingActionButton(
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) {
-                return const AddbucketListScreen();
-              }));
+                return AddbucketListScreen(
+                  newIndex: bucketlist.length,
+                );
+              })).then((value) {
+                if (value == 'refresh') {
+                  getData();
+                }
+              });
             },
             shape: const CircleBorder(),
             child: const Icon(Icons.add)),
